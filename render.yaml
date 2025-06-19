@@ -19,5 +19,9 @@ services:
     env: docker
     plan: free
     dockerfilePath: MAX_CHATBOT/price-whisperer-bot/Dockerfile
+<<<<<<< HEAD
     buildContext: MAX_CHATBOT/price-whisperer-bot
     autoDeploy: true
+=======
+    autoDeploy: true
+>>>>>>> 22cae0df92302a29c17a068baf6ad07330bd74ec
