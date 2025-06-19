@@ -1,0 +1,17 @@
+version: '3.8'
+services:
+  backend:
+    build: ./MAX_CHATBOT
+    ports:
+      - "5000:5000"
+    env_file:
+      - ./MAX_CHATBOT/.env
+    volumes:
+      - ./MAX_CHATBOT/pdfs:/app/pdfs
+
+  frontend:
+    build: ./MAX_CHATBOT/price-whisperer-bot
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend 
