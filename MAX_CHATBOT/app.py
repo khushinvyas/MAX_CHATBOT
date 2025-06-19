@@ -62,7 +62,13 @@ app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "super-secret-key")  # Needed for session
 CORS(app, resources={
     r"/*": {
-        "origins": ["https://*.onrender.com", "http://localhost:5000", "http://localhost:5173", "http://localhost:8080"],
+        "origins": [
+            "https://*.onrender.com",
+            "http://localhost:5000",
+            "http://localhost:5173",
+            "http://localhost:8080",
+            "https://max-enquiry-chatbot-tn7l0253t-khushins-projects.vercel.app"
+        ],
         "methods": ["GET", "POST", "OPTIONS", "PUT", "DELETE"],
         "allow_headers": ["Content-Type", "Authorization"]
     }
