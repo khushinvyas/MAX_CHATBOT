@@ -4,6 +4,7 @@ services:
     env: docker
     plan: free
     dockerfilePath: MAX_CHATBOT/Dockerfile
+    buildContext: MAX_CHATBOT
     envVars:
       - key: SUPABASE_URL
         sync: false
@@ -12,14 +13,11 @@ services:
       - key: GEMINI_API_KEY
         sync: false
     autoDeploy: true
-    buildCommand: ""
-    startCommand: ""
 
   - type: web
     name: frontend
     env: docker
     plan: free
     dockerfilePath: MAX_CHATBOT/price-whisperer-bot/Dockerfile
+    buildContext: MAX_CHATBOT/price-whisperer-bot
     autoDeploy: true
-    buildCommand: ""
-    startCommand: ""
