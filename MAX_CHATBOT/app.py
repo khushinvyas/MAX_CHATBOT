@@ -9,7 +9,6 @@ import json
 import traceback
 import logging
 import hashlib
-import threading
 import time
 import sys
 import jwt
@@ -21,10 +20,9 @@ from supabase import create_client, Client
 
 # Configure logging
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('app.log'),
         logging.StreamHandler()
     ]
 )
@@ -67,7 +65,9 @@ CORS(app, resources={
             "http://localhost:5000",
             "http://localhost:5173",
             "http://localhost:8080",
-            "https://max-enquiry-chatbot.vercel.app"
+            "https://max-enquiry-chatbot.vercel.app",
+            "https://*.vercel.app",
+            "https://max-enquiry-chatbot-3qa0xcwdu-khushins-projects.vercel.app"
         ],
         "methods": ["GET", "POST", "OPTIONS", "PUT", "DELETE"],
         "allow_headers": ["Content-Type", "Authorization"]
@@ -97,7 +97,6 @@ init_storage_bucket()
 # Global variables to store PDF data and file hashes
 product_data = ""
 pdf_hashes = {}
-stop_polling = False
 
 def calculate_file_hash(file_path):
     """Calculate MD5 hash of a file."""
@@ -334,7 +333,7 @@ def log_interaction(question, response=None, error=None):
     except Exception as e:
         logger.error(f"Failed to log interaction: {str(e)}")
 
-# Extract product data once at startup
+# Extract product data once at startup (for Vercel, this will happen on each cold start)
 try:
     product_data = extract_pdf_text()
     if not product_data.strip():
@@ -345,15 +344,10 @@ except Exception as e:
     logger.error(f"Failed to extract product data: {str(e)}")
     product_data = ""
 
-# Start PDF directory polling in a separate thread
-polling_thread = threading.Thread(target=poll_pdf_directory, daemon=True)
-polling_thread.start()
-logger.info(f"Started polling directory: {PDF_DIRECTORY}")
-
 # Flask route for home page
 @app.route("/", methods=["GET"])
 def home():
-    return render_template("index.html")
+    return jsonify({"message": "Chatbot API is running", "status": "success"})
 
 # Modify existing chat endpoint to not require authentication
 @app.route("/api/chat", methods=["POST"])
@@ -373,7 +367,9 @@ def chat():
         language = data.get("language", "en")  # Default to English
         logger.info(f"Received query from {customer_name}: {user_query} (lang={language})")
 
-        if not product_data.strip():
+        # For Vercel, extract product data on each request to ensure freshness
+        current_product_data = extract_pdf_text()
+        if not current_product_data.strip():
             error_msg = "No product data available. Please upload a price list."
             logger.error(error_msg)
             log_interaction(user_query, error=error_msg)
@@ -395,7 +391,7 @@ def chat():
         history_text = "\n".join([
             f"{h['role'].capitalize()}: {h['content']}" for h in history
         ])
-        prompt = f"""Based on the following product information:\n{product_data}\n\nConversation so far:\n{history_text}\n\nAnswer the user's question: {user_query}\n\nImportant:\n- When providing price information, format it in a clear and readable way.\n- Use bullet points for different price types.\n- Separate prices with clear labels.\n- Use proper spacing and line breaks.\n- Avoid using asterisks or markdown formatting.\n- Make sure the response is easy to read and understand.\n- If possible, return a JSON object with a 'text' field for the answer and a 'prices' field as a list of price items (if relevant).\n"""
+        prompt = f"""Based on the following product information:\n{current_product_data}\n\nConversation so far:\n{history_text}\n\nAnswer the user's question: {user_query}\n\nImportant:\n- When providing price information, format it in a clear and readable way.\n- Use bullet points for different price types.\n- Separate prices with clear labels.\n- Use proper spacing and line breaks.\n- Avoid using asterisks or markdown formatting.\n- Make sure the response is easy to read and understand.\n- If possible, return a JSON object with a 'text' field for the answer and a 'prices' field as a list of price items (if relevant).\n"""
         if language == "gu":
             prompt += (
                 "\n\nRespond ONLY in Gujarati language. Do NOT use English or any other language. "
@@ -443,13 +439,6 @@ def chat():
             "suggestion": "Please try again later or contact support.",
             "status": "error"
         }), 500
-
-def signal_handler(signum, frame):
-    """Handle shutdown signals."""
-    global stop_polling
-    logger.info("Shutting down...")
-    stop_polling = True
-    sys.exit(0)
 
 @app.route("/api/files/upload", methods=["POST"])
 @admin_required
@@ -586,6 +575,3 @@ if __name__ == "__main__":
         app.run(host="0.0.0.0", port=5000, debug=False)
     except KeyboardInterrupt:
         logger.info("Received keyboard interrupt")
-    finally:
-        stop_polling = True
-        polling_thread.join(timeout=5)
